@@ -239,7 +239,3 @@ You can also create the service manually:
 - Project: [AI Code Reviewer](https://github.com/Raj-Rathod-Ai/AI-Code-Reviewer)
 
 ---
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
