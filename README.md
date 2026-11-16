@@ -1,116 +1,246 @@
+<!--
+  AI Code Reviewer
+  Documentation maintained in the project repository.
+-->
+
+<div align="center">
+
 # AI Code Reviewer
 
-A web-based code review tool that examines recent changes in a public GitHub repository and delivers a structured review report by email.
+### Review recent GitHub changes. Understand issues. Improve with confidence.
 
-**Made by [Raj Rathod](https://github.com/Raj-Rathod-Ai)**
+A focused code-review workflow that collects recent commits, analyses changed code with Cloudflare Workers AI, and delivers a clear HTML report by email.
 
-<p align="center">
-  <a href="https://github.com/Raj-Rathod-Ai/AI-Code-Reviewer">GitHub Repository</a>
-  ·
-  <a href="https://github.com/Raj-Rathod-Ai">Creator Profile</a>
-</p>
+<br/>
+
+[![GitHub repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/Raj-Rathod-Ai/AI-Code-Reviewer)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Web_API-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Cloudflare Workers AI](https://img.shields.io/badge/Cloudflare-Workers_AI-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers-ai/)
+
+<br/>
+
+**Built by [Raj Rathod](https://github.com/Raj-Rathod-Ai)**
+
+</div>
 
 ---
 
-## Overview
+## ✦ What it does
 
-AI Code Reviewer helps developers inspect recent code changes without manually reading every changed line. Submit a public GitHub repository URL and an email address. The application collects the latest five commits, prepares the relevant code diff, sends review batches to Cloudflare Workers AI, and creates an HTML report with findings and recommendations.
+AI Code Reviewer turns recent repository changes into an organised review. Submit a public GitHub repository URL and an email address. The application fetches the latest five commits from the default branch, prepares the code diff, sends review batches to Cloudflare Workers AI, builds a styled HTML report, and delivers it through Brevo.
 
-The report is emailed to the address supplied with the request and is also available in the browser after the review completes.
+## Highlights
 
-## Features
+| | Capability | What it does |
+|:--:|---|---|
+| ◈ | **Recent commit analysis** | Reviews the latest five commits from the repository's default branch. |
+| ◉ | **GitHub integration** | Collects repository details, commit metadata, and code differences through the GitHub REST API. |
+| ✧ | **AI code analysis** | Uses a configurable Cloudflare Workers AI model to examine changed code. |
+| ⌘ | **Focused file filtering** | Skips configured generated folders, binary patches, dependency lock files, and sensitive file types. |
+| ▤ | **Batch processing** | Splits larger diffs into manageable model requests. |
+| ✓ | **Structured findings** | Groups results into Error, Warning, and Suggestion categories. |
+| ▧ | **HTML report** | Creates a readable report with commit details, findings, recommendations, and creator branding. |
+| ✉ | **Email delivery** | Sends the report as an HTML email using Brevo. |
+| ◎ | **Web interface** | Accepts repository and email details and displays the generated report. |
 
-- **Recent commit review:** focuses on the latest five commits from the repository's default branch.
-- **GitHub integration:** retrieves repository information, commit history, metadata, and code differences through the GitHub REST API.
-- **AI-powered analysis:** uses a configurable Cloudflare Workers AI model. The default model is `@cf/qwen/qwen2.5-coder-32b-instruct`.
-- **Focused code filtering:** reviews supported source and configuration file types while skipping common generated folders, dependency lock files, binary patches, and sensitive files such as environment and private-key files.
-- **Batch processing:** divides larger diffs into manageable review batches.
-- **Actionable findings:** organises findings into Error, Warning, and Suggestion categories, with explanations, impact, and recommended fixes.
-- **HTML report:** creates a readable report containing repository details, commit information, review findings, and creator attribution.
-- **Email delivery:** sends the report as an HTML email through the Brevo API.
-- **Web interface:** provides a simple form for submitting a repository URL and email address, then displays the generated report.
-- **Creator attribution:** includes a visible creator link and branding in the report.
+---
 
 ## Architecture
 
-The application is organised into two main Python modules:
+The application separates the web experience from the code-review pipeline. FastAPI handles user requests and report display; the review module coordinates GitHub, Cloudflare Workers AI, report generation, and email delivery.
 
-- `app.py` — FastAPI web application, homepage, form handling, report display, and short-lived report cache.
-- `scripts/review.py` — GitHub data collection, diff filtering, batch creation, AI requests, HTML report generation, and Brevo email delivery.
-
-### Architecture diagram
+### System architecture
 
 ```mermaid
-flowchart TD
-    A[Developer] --> B[FastAPI Web App - app.py]
-    B --> C[Repository URL and Email]
-    C --> D[GitHub REST API]
-    D --> E[Recent Commits and Code Diff]
-    E --> F[Diff Filtering and Batching]
-    F --> G[Cloudflare Workers AI]
-    G --> H[Review Findings]
-    H --> I[HTML Report Builder]
-    I --> J[Brevo Email API]
-    J --> K[Report Delivered to Inbox]
-    I --> L[FastAPI Report Page]
-    L --> M[Developer Views Report]
+flowchart TB
+    DEV([Developer])
+
+    subgraph WEB["01 · Web application"]
+      UI["FastAPI · app.py"]
+      FORM["Repository URL + email"]
+      CACHE[("Temporary report cache")]
+      PAGE["Report page"]
+      UI --> FORM
+      UI --> CACHE
+      CACHE --> PAGE
+    end
+
+    subgraph REVIEW["02 · Review pipeline · scripts/review.py"]
+      GH["GitHub API client"]
+      COMMITS["Default branch + latest 5 commits"]
+      DIFF["Commit comparison · unified diff"]
+      FILTER["File filtering"]
+      BATCH["Diff batching"]
+      PROMPT["Evidence-based review prompt"]
+      REPORT["HTML report builder"]
+      GH --> COMMITS --> DIFF --> FILTER --> BATCH --> PROMPT --> REPORT
+    end
+
+    subgraph SERVICES["03 · External services"]
+      GITHUB[("GitHub REST API")]
+      CF["Cloudflare Workers AI · Qwen"]
+      BREVO["Brevo email API"]
+    end
+
+    DEV --> UI
+    FORM --> GH
+    GH <--> GITHUB
+    PROMPT <--> CF
+    REPORT --> CACHE
+    REPORT --> BREVO
+    BREVO --> INBOX([Recipient inbox])
+    PAGE --> DEV
+
+    classDef user fill:#eef5ff,stroke:#3978c8,color:#203247
+    classDef app fill:#edf8f1,stroke:#4d9b78,color:#203247
+    classDef service fill:#fff5e9,stroke:#e59b43,color:#49351d
+    class DEV,INBOX user
+    class UI,FORM,CACHE,PAGE,GH,COMMITS,DIFF,FILTER,BATCH,PROMPT,REPORT app
+    class GITHUB,CF,BREVO service
 ```
 
-## Review workflow
+### Request sequence
 
-1. **Submit details** — The developer enters a public GitHub repository URL and an email address on the website.
-2. **Validate input** — FastAPI checks that the URL points to GitHub and that an email address has been provided.
-3. **Read repository details** — The review module identifies the repository's default branch using the GitHub REST API.
-4. **Collect recent commits** — The application retrieves up to five latest commits from that branch and records their short SHA, message, and date.
-5. **Build the diff** — GitHub's compare endpoint supplies the changes across the selected commit range.
-6. **Filter changed files** — The application keeps supported source and configuration files and skips configured generated, binary, dependency, and sensitive files.
-7. **Create review batches** — The accepted file diffs are grouped into batches for model requests.
-8. **Analyse the changes** — Each batch is sent to the configured Cloudflare Workers AI model with instructions to identify evidence-based bugs, security concerns, performance issues, and maintainability improvements.
-9. **Prepare findings** — Model responses are assembled into report sections using Error, Warning, and Suggestion categories.
-10. **Generate and deliver the report** — The application creates a styled HTML report and sends it to the submitted email address through Brevo.
-11. **Display the report** — FastAPI makes the report available in the browser using a temporary report link.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Developer
+    participant Web as FastAPI · app.py
+    participant Review as Review pipeline
+    participant GitHub as GitHub API
+    participant Model as Cloudflare Workers AI
+    participant Mail as Brevo
 
-## Review output
+    Developer->>Web: Submit repository URL and email
+    Web->>Web: Validate submitted details
+    Web->>Review: Start review
+    Review->>GitHub: Read repository and default branch
+    GitHub-->>Review: Repository details
+    Review->>GitHub: Fetch latest five commits
+    GitHub-->>Review: Commit metadata
+    Review->>GitHub: Compare commit range
+    GitHub-->>Review: Code diff
+    Review->>Review: Filter files and create batches
+    loop Each review batch
+        Review->>Model: Send review prompt and diff
+        Model-->>Review: Findings and recommendations
+    end
+    Review->>Review: Assemble HTML report
+    par Email delivery
+        Review->>Mail: Send HTML report
+        Mail-->>Developer: Report email
+    and Browser result
+        Review-->>Web: Return HTML report
+        Web-->>Developer: Report page
+    end
+```
 
-The report is designed to make findings easy to understand and act on. A finding can include:
+### Review data flow
 
-- Finding title and severity
-- Changed file name
-- Line number, when available
-- Explanation of the problem
-- Potential impact
-- Recommended correction
-- Example corrected code, when appropriate
+```mermaid
+flowchart LR
+    A["GitHub repository"] --> B["Commit metadata"]
+    A --> C["Unified diff"]
+    C --> D["File and content filters"]
+    D --> E["Review batches"]
+    E --> F["Cloudflare model"]
+    F --> G["Review findings"]
+    G --> H["Styled HTML"]
+    H --> I["Browser report"]
+    H --> J["Brevo email"]
+```
 
-The report also includes repository information and a summary of the recent commits reviewed.
+---
+
+## How a review works
+
+<details open>
+<summary><strong>01 · Submit a repository</strong></summary>
+
+The developer enters a public GitHub repository URL and a recipient email address on the homepage. FastAPI checks the submitted URL and email before starting the review.
+</details>
+
+<details>
+<summary><strong>02 · Collect recent changes</strong></summary>
+
+The review module reads the repository's default branch, retrieves up to five latest commits, and requests the GitHub compare diff for the selected commit range. Commit identifiers, messages, and dates are collected for the report.
+</details>
+
+<details>
+<summary><strong>03 · Prepare review input</strong></summary>
+
+The diff is separated into file sections. Configured generated folders, dependency lock files, binary patches, and sensitive files are skipped. Remaining changes are grouped into batches.
+</details>
+
+<details>
+<summary><strong>04 · Analyse with Cloudflare Workers AI</strong></summary>
+
+Each batch is sent to the configured model with instructions to focus on evidence in the supplied changes. The review prompt asks for concrete explanations and practical recommendations rather than unsupported assumptions.
+</details>
+
+<details>
+<summary><strong>05 · Build and deliver the report</strong></summary>
+
+The responses are assembled into a styled HTML report. The report includes repository details, recent commit information, findings, and creator attribution. Brevo sends the HTML report to the submitted email address, and FastAPI returns a browser report page.
+</details>
+
+## Finding format
+
+The review prompt organises findings into three categories:
+
+| Category | Intended use |
+|---|---|
+| **Error** | Bugs, broken behaviour, and serious security concerns |
+| **Warning** | Potential defects, risky patterns, and performance concerns |
+| **Suggestion** | Readability, maintainability, and code-quality improvements |
+
+A finding can contain a title, severity, file name, line number when available, explanation, impact, and recommendation or corrected code.
+
+---
 
 ## Technology stack
 
-| Component | Technology | Responsibility |
+<div align="center">
+
+| Layer | Technology | Role |
 |---|---|---|
-| Web framework | FastAPI | Website, form submission, and report routes |
-| Server | Uvicorn | Runs the FastAPI application |
-| Git provider | GitHub REST API | Repository details, commits, and diffs |
-| AI inference | Cloudflare Workers AI | Analyses code changes |
-| Default model | Qwen 2.5 Coder 32B Instruct | Code-focused review model |
-| Email delivery | Brevo API | Sends HTML review reports |
-| HTTP client | Requests | Communicates with external APIs |
-| Configuration | python-dotenv | Loads environment variables |
+| User interface and routes | **FastAPI** | Homepage, form handling, report route |
+| Application server | **Uvicorn** | Runs the web application |
+| Source control data | **GitHub REST API** | Repository, commits, and diffs |
+| Model inference | **Cloudflare Workers AI** | Analyses changed code |
+| Default model | **Qwen 2.5 Coder 32B Instruct** | Code-focused review |
+| Email delivery | **Brevo API** | Sends HTML reports |
+| HTTP requests | **Requests** | Calls external APIs |
+| Configuration | **python-dotenv** | Loads local environment variables |
+| Hosting | **Render** | Hosts the web service |
+
+</div>
 
 ## Project structure
 
 ```text
 AI-Code-Reviewer/
-├── app.py
+│
+├── .github/
+│   └── workflows/
+│       └── python-app.yml
+│
 ├── scripts/
+│   ├── __init__.py
 │   └── review.py
+│
+├── app.py
 ├── requirements.txt
 ├── render.yaml
 ├── .gitignore
+├── .env.example
 └── README.md
 ```
 
-## Getting started
+---
+
+## Run locally
 
 ### 1. Clone the repository
 
@@ -119,7 +249,7 @@ git clone https://github.com/Raj-Rathod-Ai/AI-Code-Reviewer.git
 cd AI-Code-Reviewer
 ```
 
-### 2. Create and activate a virtual environment
+### 2. Create a virtual environment
 
 **Windows PowerShell**
 
@@ -153,11 +283,11 @@ CLOUDFLARE_MODEL=@cf/qwen/qwen2.5-coder-32b-instruct
 BREVO_API_KEY=your_brevo_api_key
 SENDER_EMAIL=your_verified_sender_email
 
-# Optional: improves GitHub API rate limits
+# Optional: authenticated GitHub API requests
 GITHUB_TOKEN=your_github_token
 ```
 
-Keep `.env` private. Do not commit API tokens or email credentials to GitHub. Add the same variables to your hosting provider's environment settings when deploying.
+Keep this file private. Do not commit API tokens or email credentials to the repository.
 
 ### 5. Start the application
 
@@ -165,35 +295,46 @@ Keep `.env` private. Do not commit API tokens or email credentials to GitHub. Ad
 uvicorn app:app --reload
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
+Open **http://127.0.0.1:8000** in your browser.
 
-## Cloudflare Workers AI setup
+---
 
-1. Create or sign in to a Cloudflare account.
-2. Open the Workers AI section and enable access.
-3. Create an API token with the permissions required to use Workers AI.
-4. Copy your Cloudflare Account ID and API token.
-5. Add both values to your `.env` file or hosting environment variables.
-6. Set `CLOUDFLARE_MODEL` to the model you want to use. The application defaults to `@cf/qwen/qwen2.5-coder-32b-instruct`.
+## Configure external services
 
-## Brevo email setup
+### Cloudflare Workers AI
 
-1. Create or sign in to a Brevo account.
-2. Generate an API key.
-3. Verify the sender email address you want to use.
-4. Set `BREVO_API_KEY` and `SENDER_EMAIL` in your environment.
-5. Submit a repository review and check the recipient inbox for the HTML report.
+1. Sign in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Open Workers AI and enable access for your account.
+3. Create an API token with the required Workers AI permissions.
+4. Copy the Account ID and API token.
+5. Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_MODEL` in your environment.
 
-## Deploy on Render
+The model identifier is configurable. The default in this project is:
 
-The repository includes a `render.yaml` configuration for Render.
+```text
+@cf/qwen/qwen2.5-coder-32b-instruct
+```
 
-You can also create the service manually:
+See the [Workers AI model catalogue](https://developers.cloudflare.com/workers-ai/models/) for available models.
 
-1. Open [Render Dashboard](https://dashboard.render.com/).
+### Brevo
+
+1. Sign in to [Brevo](https://www.brevo.com/).
+2. Create an API key.
+3. Verify the sender email address.
+4. Set `BREVO_API_KEY` and `SENDER_EMAIL`.
+5. Submit a review and check the recipient inbox.
+
+---
+
+## Deploy to Render
+
+The repository contains a `render.yaml` file for a Render Blueprint deployment. You can also create a **Web Service** manually:
+
+1. Open the [Render Dashboard](https://dashboard.render.com/).
 2. Select **New + → Web Service**.
-3. Connect this GitHub repository and select the `main` branch.
-4. Choose **Python** as the runtime.
+3. Connect this GitHub repository and choose the `main` branch.
+4. Select **Python** as the runtime.
 5. Set the build command:
 
    ```bash
@@ -206,36 +347,56 @@ You can also create the service manually:
    uvicorn app:app --host 0.0.0.0 --port $PORT
    ```
 
-7. Add the Cloudflare, Brevo, and optional GitHub environment variables listed above.
-8. Create the Web Service and open the public URL provided by Render.
+7. Add the environment variables listed below in Render's Environment section.
+8. Create the service and open the public URL provided by Render.
 
-## Environment variables
+### Environment variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `CLOUDFLARE_ACCOUNT_ID` | Yes | Cloudflare account used for Workers AI |
-| `CLOUDFLARE_API_TOKEN` | Yes | API token authorised for Workers AI |
-| `CLOUDFLARE_MODEL` | No | Workers AI model identifier; defaults to Qwen 2.5 Coder 32B Instruct |
-| `BREVO_API_KEY` | Yes | Brevo API key used to send email |
-| `SENDER_EMAIL` | Yes | Verified sender email address in Brevo |
-| `GITHUB_TOKEN` | No | GitHub token for authenticated API requests |
+| Name | Required | Purpose |
+|---|:---:|---|
+| `CLOUDFLARE_ACCOUNT_ID` | Yes | Cloudflare account identifier |
+| `CLOUDFLARE_API_TOKEN` | Yes | Workers AI API authorisation |
+| `CLOUDFLARE_MODEL` | No | Model identifier; uses the configured default when omitted |
+| `BREVO_API_KEY` | Yes | Brevo email API key |
+| `SENDER_EMAIL` | Yes | Verified sender address |
+| `GITHUB_TOKEN` | No | Authenticated GitHub API access |
 
-## Benefits
+Add secrets through Render's dashboard. Never put secret values in `render.yaml` or commit them to Git.
 
-- Turns recent GitHub changes into a structured review.
-- Helps developers spot potential bugs and security concerns earlier.
-- Explains findings in a consistent format with practical recommendations.
-- Keeps the review focused on changed code instead of unrelated repository files.
-- Makes review results easy to share through a browser report and email.
-- Uses a modular structure that separates the web interface from the review workflow.
-- Supports a configurable model through environment variables.
-- Can be run locally or deployed as a web service.
+---
+
+## Why use AI Code Reviewer?
+
+- **Focused feedback:** directs the review toward recent changes and their diff context.
+- **Clear explanations:** organises findings into understandable categories.
+- **Practical next steps:** provides impact descriptions and recommendations.
+- **Shareable results:** creates a browser-friendly HTML report and sends it by email.
+- **Modular design:** keeps web routes separate from the GitHub and AI review workflow.
+- **Configurable inference:** allows the model to be selected through an environment variable.
+- **Developer-friendly setup:** supports local development and Render hosting.
+
+---
 
 ## Creator
 
-**Raj Rathod**
+<div align="center">
 
-- GitHub: [@Raj-Rathod-Ai](https://github.com/Raj-Rathod-Ai)
-- Project: [AI Code Reviewer](https://github.com/Raj-Rathod-Ai/AI-Code-Reviewer)
+### Made with care by [Raj Rathod](https://github.com/Raj-Rathod-Ai)
+
+[![GitHub](https://img.shields.io/badge/GitHub-Raj--Rathod--Ai-181717?style=for-the-badge&logo=github)](https://github.com/Raj-Rathod-Ai)
+
+[Project repository](https://github.com/Raj-Rathod-Ai/AI-Code-Reviewer)
+
+</div>
 
 ---
+
+## License
+
+Distributed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+<div align="center">
+
+<sub>AI Code Reviewer · Built for developers · © 2026 Raj Rathod</sub>
+
+</div>
