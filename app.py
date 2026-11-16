@@ -16,7 +16,9 @@ load_dotenv()
 app = FastAPI(title="Code Review")
 
 REPORT_TTL = 900
+REVIEW_CACHE_TTL = 300
 reports_cache = {}
+review_cache = {}
 
 
 def save_report(report):
@@ -26,6 +28,55 @@ def save_report(report):
         "expires": time.time() + REPORT_TTL
     }
     return token
+
+
+def make_review_cache_key(repo_url, email):
+    """Return a stable key for the same GitHub repository and recipient."""
+    parsed = urlparse(repo_url.strip())
+    parts = [part for part in parsed.path.strip("/").split("/") if part]
+
+    # GitHub repository identity is owner/repository; ignore casing,
+    # trailing slashes, query strings and optional .git suffix.
+    owner = parts[0].lower()
+    repo = parts[1].lower()
+    if repo.endswith(".git"):
+        repo = repo[:-4]
+
+    return f"{owner}/{repo}:{email.strip().lower()}"
+
+
+def get_cached_review(cache_key):
+    cached = review_cache.get(cache_key)
+    if not cached:
+        return None
+
+    if time.time() >= cached["expires"]:
+        review_cache.pop(cache_key, None)
+        return None
+
+    # The report token must still point to a live report.
+    if get_report(cached["token"]) is None:
+        review_cache.pop(cache_key, None)
+        return None
+
+    return cached["token"]
+
+
+def cache_review(cache_key, token):
+    now = time.time()
+
+    # Remove expired review-cache entries to keep the in-memory cache tidy.
+    expired_keys = [
+        key for key, value in review_cache.items()
+        if now >= value["expires"]
+    ]
+    for key in expired_keys:
+        review_cache.pop(key, None)
+
+    review_cache[cache_key] = {
+        "token": token,
+        "expires": now + REVIEW_CACHE_TTL
+    }
 
 
 def get_report(token):
@@ -543,9 +594,21 @@ def review(repo_url: str = Form(...), email: str = Form(...)):
             status_code=400
         )
 
+    cache_key = make_review_cache_key(repo_url, email)
+    cached_token = get_cached_review(cache_key)
+
+    if cached_token:
+        print(f"Using cached review for {cache_key.split(':', 1)[0]}")
+        return RedirectResponse(
+            url=f"/report/{cached_token}",
+            status_code=303
+        )
+
+    print(f"No valid cached review found. Starting a new review for {cache_key.split(':', 1)[0]}")
     report = review_code(repo_url, email)
 
     token = save_report(report)
+    cache_review(cache_key, token)
 
     return RedirectResponse(
         url=f"/report/{token}",
